@@ -3,6 +3,8 @@
 library(tidyverse)
 #install.packages("naniar")
 library(naniar)
+#install.packages('vcdExtra')
+library(vcdExtra)
 
 
 # Read the data set
@@ -160,9 +162,51 @@ table(telco_train$Contract, telco_train$Churn) # no issues
 table(telco_train$PaperlessBilling, telco_train$Churn) # no issues
 table(telco_train$PaymentMethod, telco_train$Churn) # no issues
 
+# 3. Check for multicollinearity
+
+telco_train$Churn <- as.factor(telco_train$Churn)
+
+model1 <- glm(formula = Churn ~ ., data = telco_train, family = binomial(link = "logit"))
+
+# 4. Find significant binary variable 
+
+CMHtest(table(telco_train$gender, telco_train$Churn))$table[1,]
+
+CMHtest(table(telco_train$SeniorCitizen, telco_train$Churn))$table[1,]
+
+CMHtest(table(telco_train$Partner, telco_train$Churn))$table[1,]
+
+CMHtest(table(telco_train$Dependents, telco_train$Churn))$table[1,]
+
+CMHtest(table(telco_train$PhoneService, telco_train$Churn))$table[1,]
+
+# 5. Find significant nominal variables
+
+chisq.test(table(telco_train$MultipleLines, telco_train$Churn))
+
+chisq.test(table(telco_train$InternetService, telco_train$Churn))
+
+chisq.test(table(telco_train$OnlineSecurity, telco_train$Churn))
+
+chisq.test(table(telco_train$OnlineBackup, telco_train$Churn))
+
+chisq.test(table(telco_train$DeviceProtection, telco_train$Churn))
+
+chisq.test(table(telco_train$TechSupport, telco_train$Churn))
+
+chisq.test(table(telco_train$StreamingTV, telco_train$Churn))
+
+chisq.test(table(telco_train$StreamingMovies, telco_train$Churn))
+
+chisq.test(table(telco_train$Contract, telco_train$Churn))
+
+chisq.test(table(telco_train$PaymentMethod, telco_train$Churn))
 
 
-
+#CREATE MODEL WITH EACH VARIABLE
+bank_initial <- glm(INS ~ factor(CASHBK) , data = bank_data, family = binomial(link = "logit"))
+bank_initial
+summary(bank_initial)
 
 
 
