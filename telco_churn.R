@@ -5,7 +5,9 @@ library(tidyverse)
 library(naniar)
 #install.packages('vcdExtra')
 library(vcdExtra)
-
+library(glmnet)
+library(car)
+library(gam)
 
 # Read the data set
 
@@ -112,8 +114,9 @@ telco_clean$PaymentMethod <- as.factor(telco_clean$PaymentMethod)
 # "TotalCharges"  - continuous
 
 # "Churn"   - binary
-telco_clean$Churn <- as.factor(telco_clean$Churn)
+#telco_clean$Churn <- as.factor(telco_clean$Churn)
 
+telco_clean$Churn <-ifelse(telco_clean$Churn == "Yes",1,0)
 
 
 #Split the dataset in to training,validation,testing (70-30)
@@ -164,9 +167,20 @@ table(telco_train$PaymentMethod, telco_train$Churn) # no issues
 
 # 3. Check for multicollinearity
 
-telco_train$Churn <- as.factor(telco_train$Churn)
+model1 <- glm(Churn ~ 1, data = telco_train, family = binomial(link = "logit"))
 
-model1 <- glm(formula = Churn ~ ., data = telco_train, family = binomial(link = "logit"))
+summary(model1)
+
+
+model2 <- glm(Churn ~ gender , data = telco_train, family = binomial(link = "logit"))
+summary(model2)
+
+model3 <- glm(Churn ~ ., data = telco_train, family = binomial(link = "logit"))
+summary(model3)
+
+fit.gam <- gam(Churn ~ s(tenure) + gender,
+               data = telco_train, family = binomial(link = 'logit'),
+               method = 'REML')
 
 # 4. Find significant binary variable 
 
@@ -203,10 +217,6 @@ chisq.test(table(telco_train$Contract, telco_train$Churn))
 chisq.test(table(telco_train$PaymentMethod, telco_train$Churn))
 
 
-#CREATE MODEL WITH EACH VARIABLE
-bank_initial <- glm(INS ~ factor(CASHBK) , data = bank_data, family = binomial(link = "logit"))
-bank_initial
-summary(bank_initial)
 
 
 
