@@ -7,7 +7,10 @@ library(naniar)
 library(vcdExtra)
 library(glmnet)
 library(car)
-library(gam)
+#library(gam)
+#install.packages("smbinning")
+library(smbinning)
+
 
 # Read the data set
 
@@ -129,7 +132,34 @@ telco_train <- telco_clean %>% sample_frac(0.7)
 
 telco_test <- anti_join(telco_clean, telco_train, by = 'id')
 
+# Change the target variable :
+
+telco_train$good <- abs(telco_train$Churn - 1)
+
 # explore relationships variables in the training dataset
+
+# Bin the continuous variables : tenure, MonthlyCharges, TotalCharges
+
+result_tenure <- smbinning(df = telco_train, y = "good", x = "tenure")
+result_tenure$ivtable
+
+result_mcharge <- smbinning(df = telco_train, y = "good", x = "MonthlyCharges")
+result_mcharge$ivtable
+
+result_tcharge <- smbinning(df = telco_train, y = "good", x = "TotalCharges")
+result_tcharge$ivtable
+
+# Create binned variables 
+
+telco_train <- smbinning.gen(df = telco_train, ivout = result_tenure, chrname = "tenure_bin")
+
+telco_train <- smbinning.gen(df = telco_train, ivout = result_mcharge, chrname = "mcharge_bin")
+
+telco_train <- smbinning.gen(df = telco_train, ivout = result_tcharge, chrname = "tcharge_bin")
+
+View(telco_train)
+
+
 
 # 1. Count of people churning 
 
@@ -165,22 +195,12 @@ table(telco_train$Contract, telco_train$Churn) # no issues
 table(telco_train$PaperlessBilling, telco_train$Churn) # no issues
 table(telco_train$PaymentMethod, telco_train$Churn) # no issues
 
-# 3. Check for multicollinearity
-
-model1 <- glm(Churn ~ 1, data = telco_train, family = binomial(link = "logit"))
-
-summary(model1)
+table(telco_train$tenure_bin, telco_train$Churn) # no issues
+table(telco_train$mcharge_bin, telco_train$Churn) #no issues
+table(telco_train$tcharge_bin, telco_train$Churn) #no issues
 
 
-model2 <- glm(Churn ~ gender , data = telco_train, family = binomial(link = "logit"))
-summary(model2)
 
-model3 <- glm(Churn ~ ., data = telco_train, family = binomial(link = "logit"))
-summary(model3)
-
-fit.gam <- gam(Churn ~ s(tenure) + gender,
-               data = telco_train, family = binomial(link = 'logit'),
-               method = 'REML')
 
 # 4. Find significant binary variable 
 
@@ -216,11 +236,32 @@ chisq.test(table(telco_train$Contract, telco_train$Churn))
 
 chisq.test(table(telco_train$PaymentMethod, telco_train$Churn))
 
+# Initial model 
+
+model1 <- glm(Churn ~ 1, data = telco_train, family = binomial(link = "logit"))
+
+summary(model1)
 
 
+model2 <- glm(Churn ~ gender , data = telco_train, family = binomial(link = "logit"))
+summary(model2)
+
+model3 <- glm(Churn ~ ., data = telco_train, family = binomial(link = "logit"))
+summary(model3)
+
+fit.gam <- gam(Churn ~ s(tenure) + gender,
+               data = telco_train, family = binomial(link = 'logit'),
+               method = 'REML')
 
 
+# all variables
 
+model4 <- glm(Churn ~ gender + SeniorCitizen + Partner + Dependents + PhoneService + MultipleLines + InternetService +
+              OnlineSecurity + OnlineBackup + DeviceProtection + TechSupport + StreamingTV + StreamingMovies +
+              Contract + PaperlessBilling + PaymentMethod + tenure_bin +
+              mcharge_bin + tcharge_bin,  
+              data = telco_train, family = binomial(link = "logit"))
+summary(model4)
 
 
 
