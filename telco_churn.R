@@ -13,6 +13,53 @@ library(smbinning)
 #library(plyr)
 #library(dplyr)
 library(ggplot2)
+install.packages('plotROC')
+library(plotROC)
+install.packages('tidyverse')
+install.packages("MASS")
+install.packages("visreg")
+install.packages("brglm")
+install.packages("car")
+install.packages("mgcv")
+install.packages("unbalanced")
+install.packages("multcomp")
+install.packages("rJava")
+install.packages("glmulti")
+install.packages("givitiR")
+install.packages("DescTools")
+install.packages("ggplot2")
+install.packages("ROCR")
+install.packages("InformationValue")
+install.packages("brant")
+install.packages("VGAM")
+install.packages("nnet")
+
+library(MASS)
+library(visreg)
+library(brglm)
+library(car)
+library(mgcv)
+library(unbalanced)
+library(multcomp)
+library(rJava)
+library(glmulti)
+library(givitiR)
+library(DescTools)
+library(ggplot2)
+library(ROCR)
+library(InformationValue)
+library(brant)
+library(VGAM)
+library(nnet)
+
+
+
+
+
+
+
+
+
 
 
 # Read the data set
@@ -364,7 +411,9 @@ ggplot(telco_train, aes(p_hat, fill = factor(Churn))) +
 
 
 
+# 2. ROC curve
 
+plotROC(telco_train$Churn, telco_train$p_hat)
 
 
 
