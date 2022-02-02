@@ -10,6 +10,9 @@ library(car)
 #library(gam)
 #install.packages("smbinning")
 library(smbinning)
+#library(plyr)
+#library(dplyr)
+library(ggplot2)
 
 
 # Read the data set
@@ -18,19 +21,15 @@ telco <- read.csv("C:/Users/conne/OneDrive/Documents/TelcoChurn.csv")
 
 # Basic exploration
 dim(telco)  # 7043 R * 21 C
-
 str(telco)
-
 colnames(telco)
-
 glimpse(telco) 
 
-
+# Categorical variables list
 vars <- c('gender', 'SeniorCitizen', 'Partner', 'Dependents', 'PhoneService', 'MultipleLines', 'InternetService',
 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies',
 'Contract', 'PaperlessBilling' , 'PaymentMethod', 'Churn') 
 
-#- should be converted as factors
 
 # Variable classification
 # classify a variable to be continuous if it has more than 10 distinct values
@@ -60,8 +59,34 @@ prop.table(table(telco_clean$Churn))
 # No      Yes 
 # 0.734215 0.265785 
 
+
+# Combine groups -- MultipleLines,OnlineSecurity,OnlineBackup,DeviceProtection,
+# TechSupport, StreamingTV, StreamingMovies
+
+# telco_clean %>% mutate(MultipleLines=recode(MultipleLines,
+#                          "No" = "No phone service"))
+
+
+
+
+telco_clean$MultipleLines <- plyr:: mapvalues(telco_clean$MultipleLines, 
+                                                 from=c("No phone service"),
+                                                  to=c("No"))
+
+for(i in 10:15){
+   telco_clean[,i] <- plyr:: mapvalues(telco_clean[,i],
+                                 from= c("No internet service"), to= c("No"))
+ }
+ 
+# # Change the SeniorCitizen column values
+telco_clean$SeniorCitizen <- plyr:: mapvalues(telco_clean$SeniorCitizen, 
+                                        from=c("0","1"),
+                                        to=c("No","Yes"))
+
+
 #Change the column in to factors
-# "customerID" - continuous
+
+
 # "gender"  - binary     
 telco_clean$gender <- as.factor(telco_clean$gender)
 
@@ -132,7 +157,16 @@ telco_train <- telco_clean %>% sample_frac(0.7)
 
 telco_test <- anti_join(telco_clean, telco_train, by = 'id')
 
-# Change the target variable :
+#Check for multicollinearity for continuous variables - correlation exists, so drop any one of the variable
+
+numeric_variable <- c('MonthlyCharges','TotalCharges')
+cor(telco_train[,numeric_variable]) # 0.6513654
+
+cor.test(telco_train$MonthlyCharges, telco_train$TotalCharges)
+
+pairs(telco_train[,numeric_variable])
+
+# Change the target variable : to use the smbinning function
 
 telco_train$good <- abs(telco_train$Churn - 1)
 
@@ -143,8 +177,8 @@ telco_train$good <- abs(telco_train$Churn - 1)
 result_tenure <- smbinning(df = telco_train, y = "good", x = "tenure")
 result_tenure$ivtable
 
-result_mcharge <- smbinning(df = telco_train, y = "good", x = "MonthlyCharges")
-result_mcharge$ivtable
+# result_mcharge <- smbinning(df = telco_train, y = "good", x = "MonthlyCharges")
+# result_mcharge$ivtable
 
 result_tcharge <- smbinning(df = telco_train, y = "good", x = "TotalCharges")
 result_tcharge$ivtable
@@ -153,7 +187,7 @@ result_tcharge$ivtable
 
 telco_train <- smbinning.gen(df = telco_train, ivout = result_tenure, chrname = "tenure_bin")
 
-telco_train <- smbinning.gen(df = telco_train, ivout = result_mcharge, chrname = "mcharge_bin")
+#telco_train <- smbinning.gen(df = telco_train, ivout = result_mcharge, chrname = "mcharge_bin")
 
 telco_train <- smbinning.gen(df = telco_train, ivout = result_tcharge, chrname = "tcharge_bin")
 
@@ -196,7 +230,7 @@ table(telco_train$PaperlessBilling, telco_train$Churn) # no issues
 table(telco_train$PaymentMethod, telco_train$Churn) # no issues
 
 table(telco_train$tenure_bin, telco_train$Churn) # no issues
-table(telco_train$mcharge_bin, telco_train$Churn) #no issues
+#table(telco_train$mcharge_bin, telco_train$Churn) #no issues
 table(telco_train$tcharge_bin, telco_train$Churn) #no issues
 
 
@@ -204,7 +238,7 @@ table(telco_train$tcharge_bin, telco_train$Churn) #no issues
 
 # 4. Find significant binary variable 
 
-CMHtest(table(telco_train$gender, telco_train$Churn))$table[1,]
+CMHtest(table(telco_train$gender, telco_train$Churn))$table[1,] # not significant
 
 CMHtest(table(telco_train$SeniorCitizen, telco_train$Churn))$table[1,]
 
@@ -236,32 +270,121 @@ chisq.test(table(telco_train$Contract, telco_train$Churn))
 
 chisq.test(table(telco_train$PaymentMethod, telco_train$Churn))
 
-# Initial model 
+# Initial intercept model 
 
 model1 <- glm(Churn ~ 1, data = telco_train, family = binomial(link = "logit"))
 
 summary(model1)
 
 
-model2 <- glm(Churn ~ gender , data = telco_train, family = binomial(link = "logit"))
-summary(model2)
-
-model3 <- glm(Churn ~ ., data = telco_train, family = binomial(link = "logit"))
-summary(model3)
-
-fit.gam <- gam(Churn ~ s(tenure) + gender,
-               data = telco_train, family = binomial(link = 'logit'),
-               method = 'REML')
-
-
 # all variables
 
-model4 <- glm(Churn ~ gender + SeniorCitizen + Partner + Dependents + PhoneService + MultipleLines + InternetService +
+model2 <- glm(Churn ~ gender + SeniorCitizen + Partner + Dependents + PhoneService + MultipleLines + InternetService +
               OnlineSecurity + OnlineBackup + DeviceProtection + TechSupport + StreamingTV + StreamingMovies +
               Contract + PaperlessBilling + PaymentMethod + tenure_bin +
-              mcharge_bin + tcharge_bin,  
+               tcharge_bin,  
               data = telco_train, family = binomial(link = "logit"))
-summary(model4)
+summary(model2)
+
+
+# Use backward selection model to find out significant variables
+
+full.model <- glm(Churn ~ gender + SeniorCitizen + Partner + Dependents + PhoneService + MultipleLines + InternetService +
+                      OnlineSecurity + OnlineBackup + DeviceProtection + TechSupport + StreamingTV + StreamingMovies +
+                      Contract + PaperlessBilling + PaymentMethod + tenure_bin +
+                      tcharge_bin,  
+                    data = telco_train, family = binomial(link = "logit"))
+
+empty.model <- glm(Churn ~ 1, data = telco_train, family = binomial(link = "logit"))
+
+step.model <- step(full.model,
+                     scope = list(lower=formula(empty.model),
+                                  upper=formula(full.model)),
+                     direction = "backward",k = 2) 
+
+
+
+# Step:  AIC=4057.67 -- Model from backward selection 
+# Churn ~ SeniorCitizen + PhoneService + MultipleLines + InternetService + 
+#   OnlineSecurity + TechSupport + StreamingTV + StreamingMovies + 
+#   Contract + PaperlessBilling + PaymentMethod + tenure_bin + 
+#   tcharge_bin
+
+
+model3 <- glm(Churn ~ SeniorCitizen + PhoneService + MultipleLines + InternetService + 
+                  OnlineSecurity + TechSupport + StreamingTV + StreamingMovies + 
+                Contract + PaperlessBilling + PaymentMethod + tenure_bin + 
+                 tcharge_bin, data = telco_train, family = binomial(link = "logit"))
+
+summary(model3)
+
+
+# Use forward selection to investigate possible interactions
+
+
+# int.model <- glm(Churn ~ (SeniorCitizen + PhoneService + MultipleLines + InternetService + 
+#                    OnlineSecurity + TechSupport + StreamingTV + StreamingMovies + 
+#                    Contract + PaperlessBilling + PaymentMethod + tenure_bin + 
+#                    tcharge_bin)^2, data = telco_train, family = binomial(link = "logit"))
+# 
+# 
+# for.model <- step(model3,
+#                   scope = list(lower=formula(model3),
+#                                upper=formula(int.model)),
+#                   direction = "forward",k = 2) 
+# Churn ~ SeniorCitizen + PhoneService + MultipleLines + InternetService + 
+#   OnlineSecurity + TechSupport + StreamingTV + StreamingMovies + 
+#   Contract + PaperlessBilling + PaymentMethod + tenure_bin + 
+#   tcharge_bin + OnlineSecurity:TechSupport + StreamingMovies:Contract + 
+#   PhoneService:TechSupport + TechSupport:PaperlessBilling + 
+#   InternetService:StreamingMovies + PhoneService:StreamingMovies + 
+#   OnlineSecurity:PaymentMethod + TechSupport:tenure_bin + TechSupport:Contract + 
+#   SeniorCitizen:PaymentMethod + PaperlessBilling:PaymentMethod + 
+#   StreamingTV:tcharge_bin + TechSupport:StreamingMovies
+
+
+dev.off()
+# Model Assessment
+
+# 1. Coefficient of discrimination
+
+telco_train$p_hat <- predict(model3, type = "response")
+
+p1 <- telco_train$p_hat[telco_train$Churn == 1]
+p0 <- telco_train$p_hat[telco_train$Churn == 0]
+coef_discrim <- mean(p1) - mean(p0)
+
+ggplot(telco_train, aes(p_hat, fill = factor(Churn))) +
+  geom_density(alpha = 0.7) +
+  scale_fill_grey() +
+  labs(x = "Predicted Probability",
+       fill = "Outcome",
+       title = paste("Coefficient of Discrimination = ",
+                     round(coef_discrim, 3), sep = ""))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
