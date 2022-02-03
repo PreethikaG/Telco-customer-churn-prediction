@@ -357,7 +357,7 @@ step.model <- step(full.model,
 #   Contract + PaperlessBilling + PaymentMethod + tenure_bin + 
 #   tcharge_bin
 
-
+# use forward slection
 model3 <- glm(Churn ~ SeniorCitizen + PhoneService + MultipleLines + InternetService + 
                   OnlineSecurity + TechSupport + StreamingTV + StreamingMovies + 
                 Contract + PaperlessBilling + PaymentMethod + tenure_bin + 
@@ -409,11 +409,39 @@ ggplot(telco_train, aes(p_hat, fill = factor(Churn))) +
        title = paste("Coefficient of Discrimination = ",
                      round(coef_discrim, 3), sep = ""))
 
+# confusion Matrix
+
+confusionMatrix(telco_train$Churn, telco_train$p_hat, threshold = 0.5)
+
+#Find out Youden Index / cut-off = 0.26?
+sens <- NULL
+spec <- NULL
+youden <- NULL
+cutoff <- NULL
+
+for(i in 1:49){
+  cutoff = c(cutoff, i/50)
+  sens <- c(sens, sensitivity(telco_train$Churn, telco_train$p_hat, threshold = i/50))
+  spec <- c(spec, specificity(telco_train$Churn, telco_train$p_hat, threshold = i/50))
+  youden <- c(youden, youdensIndex(telco_train$Churn, telco_train$p_hat, threshold = i/50))
+}
+
+ctable <- data.frame(cutoff, sens, spec, youden)
+
+print(ctable[order(-youden),])
 
 
 # 2. ROC curve
 
 plotROC(telco_train$Churn, telco_train$p_hat)
+
+
+
+
+
+
+
+
 
 
 
